@@ -37,8 +37,24 @@ impl HostAPI {
         HostAPI { raw }
     }
 
+    /// Create a null/stub HostAPI for use when the host has not called plugin_init.
+    /// All operations on this stub return errors or empty values.
+    ///
+    /// # Safety
+    /// All methods on this instance check for null before dereferencing.
+    pub fn null() -> Self {
+        HostAPI { raw: std::ptr::null() }
+    }
+
+    fn is_null(&self) -> bool {
+        self.raw.is_null()
+    }
+
     /// Read clipboard format data. Returns owned bytes.
     pub fn read_format(&self, format_name: &str) -> Result<Vec<u8>, String> {
+        if self.is_null() {
+            return Err("host API not available (plugin not initialized)".to_string());
+        }
         let c_name = CString::new(format_name)
             .map_err(|e| format!("invalid format name: {}", e))?;
         let mut buf: *const u8 = std::ptr::null();
@@ -59,6 +75,9 @@ impl HostAPI {
 
     /// Get plugin configuration as parsed JSON.
     pub fn get_config(&self) -> serde_json::Value {
+        if self.is_null() {
+            return serde_json::Value::Object(Default::default());
+        }
         let raw = unsafe { &*self.raw };
         let config_fn = match raw.get_config_json {
             Some(f) => f,
@@ -75,6 +94,7 @@ impl HostAPI {
 
     /// Log a message to the host.
     pub fn log(&self, level: i32, message: &str) {
+        if self.is_null() { return; }
         let raw = unsafe { &*self.raw };
         if let Some(log_fn) = raw.log {
             if let Ok(c_msg) = CString::new(message) {
@@ -85,6 +105,7 @@ impl HostAPI {
 
     /// Get the current platform identifier.
     pub fn platform(&self) -> String {
+        if self.is_null() { return String::new(); }
         let raw = unsafe { &*self.raw };
         let plat_fn = match raw.platform {
             Some(f) => f,

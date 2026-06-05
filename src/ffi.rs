@@ -63,7 +63,10 @@ macro_rules! schrodinger_plugin {
         fn build_clip_entry(
             meta: $crate::types::EntryMeta,
         ) -> $crate::types::ClipEntry {
-            let api = HOST_API.get().expect("plugin not initialized").clone();
+            let api = HOST_API
+                .get()
+                .cloned()
+                .unwrap_or_else(|| std::sync::Arc::new($crate::host_api::HostAPI::null()));
             let analysis = get_analysis_cache()
                 .lock()
                 .unwrap()
