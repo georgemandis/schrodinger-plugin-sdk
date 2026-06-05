@@ -93,3 +93,52 @@ impl AnalysisData {
         self.inner.lock().unwrap().contains_key(key)
     }
 }
+
+use crate::host_api::HostAPI;
+
+/// Wrapper around clipboard entry data, providing access to
+/// format data via the host API and cached analysis results.
+pub struct ClipEntry {
+    pub meta: EntryMeta,
+    host_api: Arc<HostAPI>,
+    analysis: AnalysisData,
+}
+
+impl ClipEntry {
+    /// Create a new ClipEntry. Called by macro-generated code.
+    pub fn new(meta: EntryMeta, host_api: Arc<HostAPI>, analysis: AnalysisData) -> Self {
+        ClipEntry { meta, host_api, analysis }
+    }
+
+    /// Read raw bytes for a clipboard format.
+    pub fn read_format(&self, format_name: &str) -> Result<Vec<u8>, PluginError> {
+        self.host_api.read_format(format_name).map_err(PluginError::from)
+    }
+
+    /// Convenience: read the first image format found.
+    pub fn read_image(&self) -> Result<Vec<u8>, PluginError> {
+        let image_formats = ["public.png", "public.tiff", "public.jpeg"];
+        for fmt in &image_formats {
+            if self.meta.formats.contains(&fmt.to_string()) {
+                return self.read_format(fmt);
+            }
+        }
+        Err(PluginError::from("no image format available"))
+    }
+
+    /// Check if any image format is present.
+    pub fn has_image_format(&self) -> bool {
+        let image_formats = ["public.png", "public.tiff", "public.jpeg"];
+        self.meta.formats.iter().any(|f| image_formats.contains(&f.as_str()))
+    }
+
+    /// Access cached analysis data.
+    pub fn analysis(&self) -> &AnalysisData {
+        &self.analysis
+    }
+
+    /// Get plugin configuration from the host.
+    pub fn config(&self) -> serde_json::Value {
+        self.host_api.get_config()
+    }
+}
