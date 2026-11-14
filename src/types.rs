@@ -65,6 +65,10 @@ pub struct EntryMeta {
     pub formats: Vec<String>,
     #[serde(default)]
     pub source_app: Option<String>,
+    /// What the user typed for this plugin's prompt mode (see `prompt` in
+    /// the manifest), when this call is for that mode. None otherwise.
+    #[serde(default)]
+    pub input: Option<String>,
 }
 
 /// Thread-safe key-value store for caching analysis results.
@@ -130,6 +134,13 @@ impl ClipEntry {
     pub fn has_image_format(&self) -> bool {
         let image_formats = ["public.png", "public.tiff", "public.jpeg"];
         self.meta.formats.iter().any(|f| image_formats.contains(&f.as_str()))
+    }
+
+    /// What the user typed for the plugin's prompt mode: a query, a
+    /// question. Present only when the picker is applying or previewing
+    /// that mode with something typed.
+    pub fn input(&self) -> Option<&str> {
+        self.meta.input.as_deref()
     }
 
     /// Access cached analysis data.

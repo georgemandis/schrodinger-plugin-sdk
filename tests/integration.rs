@@ -20,7 +20,7 @@ impl NativePlugin for TestPlugin {
         entry: &ClipEntry,
         _mode: Option<&str>,
     ) -> Result<Vec<Output>, PluginError> {
-        Ok(vec![Output::text("transformed")])
+        Ok(vec![Output::text(entry.input().unwrap_or("transformed"))])
     }
 }
 
@@ -63,4 +63,13 @@ fn test_applies_to_mode_is_answered_per_mode() {
     assert!(plugin_applies_to_mode(html.as_ptr(), mode("shout").as_ptr()));
     // No mode to ask about: nothing is ruled out.
     assert!(plugin_applies_to_mode(text.as_ptr(), std::ptr::null()));
+}
+
+#[test]
+fn test_typed_input_reaches_the_entry() {
+    let with: EntryMeta = serde_json::from_str(r#"{"change_count":1,"timestamp":0,"formats":[],"input":"select 1"}"#).unwrap();
+    assert_eq!(with.input.as_deref(), Some("select 1"));
+    // A host that predates prompts sends no such field.
+    let without: EntryMeta = serde_json::from_str(r#"{"change_count":1,"timestamp":0,"formats":[]}"#).unwrap();
+    assert_eq!(without.input, None);
 }
