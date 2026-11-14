@@ -10,6 +10,11 @@ impl NativePlugin for TestPlugin {
         entry.meta.formats.contains(&"public.utf8-plain-text".to_string())
     }
 
+    fn applies_to_mode(&self, entry: &ClipEntry, mode: &str) -> bool {
+        // "shout" only makes sense when the clip also carries HTML.
+        mode != "shout" || entry.meta.formats.contains(&"public.html".to_string())
+    }
+
     fn apply(
         &self,
         entry: &ClipEntry,
@@ -46,4 +51,16 @@ fn test_applies_to_without_text() {
 #[test]
 fn test_applies_to_null_returns_false() {
     assert!(!plugin_applies_to(std::ptr::null()));
+}
+
+#[test]
+fn test_applies_to_mode_is_answered_per_mode() {
+    let mode = |m: &str| std::ffi::CString::new(m).unwrap();
+    let text = std::ffi::CString::new(r#"{"change_count":1,"timestamp":0,"formats":["public.utf8-plain-text"]}"#).unwrap();
+    let html = std::ffi::CString::new(r#"{"change_count":2,"timestamp":0,"formats":["public.utf8-plain-text","public.html"]}"#).unwrap();
+    assert!(plugin_applies_to_mode(text.as_ptr(), mode("plain").as_ptr()));
+    assert!(!plugin_applies_to_mode(text.as_ptr(), mode("shout").as_ptr()));
+    assert!(plugin_applies_to_mode(html.as_ptr(), mode("shout").as_ptr()));
+    // No mode to ask about: nothing is ruled out.
+    assert!(plugin_applies_to_mode(text.as_ptr(), std::ptr::null()));
 }

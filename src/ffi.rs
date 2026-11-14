@@ -13,6 +13,16 @@ pub trait NativePlugin: Send + Sync + 'static {
     /// Should this plugin appear for this clipboard entry?
     fn applies_to(&self, entry: &crate::types::ClipEntry) -> bool;
 
+    /// Should this mode be offered for this entry? Asked only when
+    /// `applies_to` is true, once per mode in the manifest. Override when
+    /// modes take different inputs (one works on text, another on files) or
+    /// when a mode is unavailable on this system. Like `applies_to`, answer
+    /// from the entry's metadata and analysis data; the clip's contents are
+    /// only readable in `analyze` and `apply`.
+    fn applies_to_mode(&self, _entry: &crate::types::ClipEntry, _mode: &str) -> bool {
+        true
+    }
+
     /// Perform the transformation.
     fn apply(
         &self,
@@ -107,6 +117,27 @@ macro_rules! schrodinger_plugin {
                 };
                 let entry = build_clip_entry(meta);
                 get_plugin().applies_to(&entry)
+            }));
+            result.unwrap_or(false)
+        }
+
+        #[no_mangle]
+        pub extern "C" fn plugin_applies_to_mode(
+            entry_json: *const std::ffi::c_char,
+            mode: *const std::ffi::c_char,
+        ) -> bool {
+            if mode.is_null() { return true; }
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                let meta = match parse_entry_meta(entry_json) {
+                    Some(m) => m,
+                    None => return false,
+                };
+                let mode = match unsafe { std::ffi::CStr::from_ptr(mode) }.to_str() {
+                    Ok(m) => m,
+                    Err(_) => return true,
+                };
+                let entry = build_clip_entry(meta);
+                get_plugin().applies_to_mode(&entry, mode)
             }));
             result.unwrap_or(false)
         }
